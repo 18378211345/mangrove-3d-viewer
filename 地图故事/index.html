@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>防城港市红树林三维展示</title>
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Cesium.js"></script>
+  <link rel="stylesheet" href="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Widgets/widgets.css">
+  <style>
+    #cesiumContainer {
+      width: 100%;
+      height: 100vh;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+    #infoPanel {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      z-index: 999;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 15px;
+      border-radius: 8px;
+      font-family: "Microsoft YaHei", sans-serif;
+      max-width: 320px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    }
+    .location-title {
+      font-weight: bold;
+      margin-bottom: 8px;
+      color: #2c3e50;
+      font-size: 18px;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 5px;
+    }
+    .location-info {
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .mangrove-area {
+      background-color: rgba(0, 128, 0, 0.1);
+      padding: 8px;
+      border-radius: 4px;
+      margin-top: 8px;
+      border-left: 3px solid #4CAF50;
+    }
+  </style>
+</head>
+<body>
+  <div id="cesiumContainer"></div>
+  <div id="infoPanel">
+    <div class="location-title">防城港市红树林三维展示</div>
+    <div id="locationInfo" class="location-info">系统初始化中...</div>
+    <div id="mangroveInfo" class="mangrove-area"></div>
+  </div>
+
+  <script>
+    // 设置Cesium Ion访问令牌
+    Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI0NGJhZjMzMS1lN2YyLTRhZjktOTA5OS05OTZmYmI0ZGMyNTAiLCJpZCI6Mjk2NzMwLCJpYXQiOjE3NDU0NTY5NzB9.MfPwNFX7Wmi3MXWVTh4FjYN_YbxWFphOxEKHIx4VAHU';
+
+    // 初始化Viewer的异步函数
+    async function initializeViewer() {
+      try {
+        // 创建地形提供者
+        const terrainProvider = await Cesium.createWorldTerrainAsync();
+        
+        // 创建影像提供者
+        const imageryProvider = await Cesium.ArcGisMapServerImageryProvider.fromUrl(
+          'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer'
+        );
+
+        // 创建Cesium Viewer实例
+        const viewer = new Cesium.Viewer("cesiumContainer", {
+          terrainProvider: terrainProvider,
+          baseLayer: new Cesium.ImageryLayer(imageryProvider),
+          baseLayerPicker: false,
+          geocoder: false,
+          homeButton: false,
+          sceneModePicker: false,
+          navigationHelpButton: false,
+          animation: false,
+          timeline: false,
+          fullscreenButton: false,
+          infoBox: false
+        });
+
+        // 启用光照效果和更好的水面效果
+        viewer.scene.globe.enableLighting = true;
+        viewer.scene.skyAtmosphere.show = true;
+        viewer.scene.fog.enabled = true;
+
+        // 红树林区域坐标和多边形定义
+        const mangroveAreas = {
+          beilunEstuary: {
+            name: "北仑河口红树林保护区",
+            description: "中国最大的海湾红树林之一，中越边境重要的生态屏障",
+            area: "约1200公顷",
+            species: "主要品种: 白骨壤、桐花树、秋茄等",
+            positions: Cesium.Cartesian3.fromDegreesArray([
+              108.15, 21.52,
+              108.18, 21.52,
+              108.19, 21.54,
+              108.17, 21.55,
+              108.15, 21.54
+            ]),
+            center: { longitude: 108.172, latitude: 21.533, height: 800 },
+            orientation: {
+              heading: Cesium.Math.toRadians(60),
+              pitch: Cesium.Math.toRadians(-25),
+              roll: 0.0
+            }
+          },
+          pearlBay: {
+            name: "珍珠湾红树林区",
+            description: "防城港市重要的红树林分布区，具有典型的海湾红树林生态系统",
+            area: "约800公顷",
+            species: "主要品种: 红海榄、木榄、海漆等",
+            positions: Cesium.Cartesian3.fromDegreesArray([
+              108.35, 21.57,
+              108.37, 21.57,
+              108.38, 21.59,
+              108.36, 21.60,
+              108.34, 21.59
+            ]),
+            center: { longitude: 108.367, latitude: 21.583, height: 1000 },
+            orientation: {
+              heading: Cesium.Math.toRadians(120),
+              pitch: Cesium.Math.toRadians(-20),
+              roll: 0.0
+            }
+          }
+        };
+
+        // 为每个区域创建笛卡尔坐标中心点
+        Object.values(mangroveAreas).forEach(area => {
+          area.cartesianCenter = Cesium.Cartesian3.fromDegrees(
+            area.center.longitude,
+            area.center.latitude,
+            area.center.height
+          );
+        });
+
+        // 更新信息面板
+        function updateInfoPanel(area) {
+          document.getElementById('locationInfo').innerHTML = `
+            <strong>${area.name}</strong><br>
+            ${area.description}
+          `;
+          
+          document.getElementById('mangroveInfo').innerHTML = `
+            <strong>红树林信息</strong><br>
+            分布面积: ${area.area}<br>
+            ${area.species}<br>
+            经度: ${area.center.longitude.toFixed(4)}°<br>
+            纬度: ${area.center.latitude.toFixed(4)}°<br>
+            高度: ${area.center.height}米
+          `;
+        }
+
+        // 添加红树林区域多边形
+        function addMangroveArea(area) {
+          viewer.entities.add({
+            name: area.name,
+            polygon: {
+              hierarchy: area.positions,
+              material: new Cesium.ColorMaterialProperty(
+                Cesium.Color.GREEN.withAlpha(0.3)
+              ),
+              outline: true,
+              outlineColor: Cesium.Color.GREEN.withAlpha(0.8),
+              outlineWidth: 2,
+              height: 5,
+              extrudedHeight: 10,
+              classificationType: Cesium.ClassificationType.TERRAIN
+            },
+            label: {
+              text: area.name,
+              font: '16pt Microsoft YaHei',
+              style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+              outlineWidth: 4,
+              fillColor: Cesium.Color.WHITE,
+              outlineColor: Cesium.Color.BLACK,
+              verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+              pixelOffset: new Cesium.Cartesian2(0, -30),
+              showBackground: true,
+              backgroundColor: new Cesium.Color(0.2, 0.2, 0.2, 0.7)
+            }
+          });
+        }
+
+        // 飞行到红树林区域
+        function flyToMangroveArea(area, duration = 10) {
+          return new Promise((resolve) => {
+            updateInfoPanel(area);
+            
+            // 先飞到高空
+            viewer.camera.flyTo({
+              destination: Cesium.Cartesian3.fromDegrees(
+                area.center.longitude,
+                area.center.latitude,
+                5000
+              ),
+              orientation: {
+                heading: 0,
+                pitch: Cesium.Math.toRadians(-60),
+                roll: 0.0
+              },
+              duration: duration / 2,
+              complete: function() {
+                // 然后飞到最佳观察位置
+                viewer.camera.flyTo({
+                  destination: area.cartesianCenter,
+                  orientation: area.orientation,
+                  duration: duration / 2,
+                  complete: function() {
+                    // 停留7秒观察
+                    setTimeout(resolve, 7000);
+                  }
+                });
+              }
+            });
+          });
+        }
+
+        // 初始化视图
+        viewer.camera.setView({
+          destination: Cesium.Cartesian3.fromDegrees(107.5, 22.0, 3000000),
+          orientation: {
+            heading: Cesium.Math.toRadians(0),
+            pitch: Cesium.Math.toRadians(-40),
+            roll: 0.0
+          }
+        });
+
+        // 添加所有红树林区域
+        Object.values(mangroveAreas).forEach(area => {
+          addMangroveArea(area);
+        });
+
+        // 自动飞行展示序列
+        (async function startTour() {
+          // 等待初始加载完成
+          await new Promise(resolve => setTimeout(resolve, 3000));
+          
+          // 无限循环展示
+          while (true) {
+            // 飞往北仑河口红树林保护区
+            await flyToMangroveArea(mangroveAreas.beilunEstuary);
+            
+            // 飞往珍珠湾红树林区
+            await flyToMangroveArea(mangroveAreas.pearlBay);
+          }
+        })();
+
+      } catch (error) {
+        console.error("初始化错误:", error);
+        document.getElementById('locationInfo').innerHTML = "系统初始化失败，请刷新页面重试";
+      }
+    }
+
+    // 启动应用
+    initializeViewer();
+  </script>
+</body>
+</html>
